@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+
+import os
+import logging
+from flask import Flask, request, abort, send_file
+from pathlib import Path
+
+# -------------------------------------------------
+# Configuration
+# -------------------------------------------------
+
+APP_PORT = int(os.environ.get("APP_PORT", 80))
+IMAGE_SECRET = os.environ.get(
+    "IMAGE_SECRET",
+    "h20tavyWvchAlZko21t0X0lH93VJCQBn"  # fallback for local testing
+)
+
+BASE_DIR = Path(__file__).resolve().parent
+IMAGE_DIR = BASE_DIR / "images"
+
+IMAGE_DIR.mkdir(exist_ok=True)
+
+# -------------------------------------------------
+# App setup
+# -------------------------------------------------
+
+logging.basicConfig(level=logging.INFO)
+app = Flask(__name__)
+
+# -------------------------------------------------
+# Health check
+# -------------------------------------------------
+
+@app.route("/health", methods=["GET"])
+def health():
+    return "OK", 200
+
+# -------------------------------------------------
+# Helper: secret validation
+# -------------------------------------------------
+
+def validate_secret():
+    secret = request.headers.get("X-Image-Secret")
+    if not secret or secret != IMAGE_SECRET:
+        logging.warning("Invalid or missing X-Image-Secret header")
+        abort(403)
+
+# -------------------------------------------------
+# GET image
+# -------------------------------------------------
+
+@app.route("/image/<file_name>", methods=["GET"])
+def get_image(file_name):
+    validate_secret()
+
+    image_path = IMAGE_DIR / f"{file_name}.png"
+
+    if not image_path.exists():
+        abort(404)
+
+    return send_file(image_path, mimetype="image/png")
+
+# -------------------------------------------------
+# POST image
+# -------------------------------------------------
+
+@app.route("/image/<file_name>", methods=["POST"])
+def save_image(file_name):
+    validate_secret()
+
+    if not request.data:
+        abort(400, "No image data provided")
+
+    image_path = IMAGE_DIR / f"{file_name}.png"
+
+    with open(image_path, "wb") as f:
+        f.write(request.data)
+
+    logging.info("Saved image: %s", image_path.name)
+    return "", 201
+
+# -------------------------------------------------
+# Root (optional but user-friendly)
+# -------------------------------------------------
+
+@app.route("/", methods=["GET"])
+def index():
+    return "Image Service is running", 200
+
+# -------------------------------------------------
+# Main
+# -------------------------------------------------
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=APP_PORT)
