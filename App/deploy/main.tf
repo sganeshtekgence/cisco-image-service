@@ -70,7 +70,7 @@ resource "aws_ecs_service" "update_only" {
       "subnet-071ec41fd0996ccd2"
     ]
 
-    security_groups  = ["sg-0da098a0dff7851d"]
+    security_groups  = ["sg-0da098a0fdff7851d"]
     assign_public_ip = true
   }
 
