@@ -60,13 +60,20 @@ resource "aws_ecs_service" "update_only" {
   name            = "cisco-image-service"
   cluster         = "cisco-ecs-cluster"
   task_definition = aws_ecs_task_definition.app.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
 
-  lifecycle {
-    ignore_changes = [
-      desired_count,
-      network_configuration,
-      launch_type,
-      scheduling_strategy
+  network_configuration {
+    subnets = [
+      "subnet-0993f000ba5d1c66",
+      "subnet-0648de06158a14095",
+      "subnet-071ec41fd0996ccd2"
     ]
+
+    security_groups  = ["sg-0da098a0dff7851d"]
+    assign_public_ip = true
   }
+
+  deployment_minimum_healthy_percent = 0
+  deployment_maximum_percent         = 100
 }
