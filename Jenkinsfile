@@ -2,14 +2,15 @@ pipeline {
   agent any
 
   environment {
-    AWS_REGION = "us-east-1"
-    ECR_REPO  = "147871689327.dkr.ecr.us-east-1.amazonaws.com/cisco-app"
-    IMAGE_TAG = "${BUILD_NUMBER}"
+    AWS_REGION     = "us-east-1"
+    AWS_ACCOUNT_ID = "147871689327"
+    ECR_REPO       = "147871689327.dkr.ecr.us-east-1.amazonaws.com/cisco-app"
+    IMAGE_TAG      = "${BUILD_NUMBER}"
   }
 
   stages {
 
-      stage("Checkout Source Code") {
+    stage("Checkout Source Code") {
       steps {
         checkout([
           $class: 'GitSCM',
@@ -25,9 +26,7 @@ pipeline {
     stage("Build Docker Image") {
       steps {
         dir("App") {
-          sh """
-            docker build -t cisco-app:${IMAGE_TAG} .
-          """
+          sh 'docker build -t cisco-app:${IMAGE_TAG} .'
         }
       }
     }
@@ -58,7 +57,9 @@ pipeline {
         }
       }
     }
-  } post {
+  }
+
+  post {
     success {
       echo "Deployment succeeded for image tag: ${IMAGE_TAG}"
     }

@@ -7,7 +7,7 @@ provider "aws" {
 # -------------------------------------------------
 
 data "aws_secretsmanager_secret" "image_secret" {
-  name = "image-service/IMAGE_SECRET"
+  name = "cisco/image-service/IMAGE_SECRET_NEW"
 }
 
 data "aws_secretsmanager_secret_version" "image_secret" {
@@ -17,7 +17,7 @@ data "aws_secretsmanager_secret_version" "image_secret" {
 locals {
   image_secret = jsondecode(
     data.aws_secretsmanager_secret_version.image_secret.secret_string
-  )["IMAGE_SECRET"]
+  )["IMAGE_SECRET_NEW"]
 }
 
 # -------------------------------------------------
