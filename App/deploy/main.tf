@@ -62,6 +62,7 @@ resource "aws_ecs_service" "update_only" {
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = 1
   launch_type     = "FARGATE"
+  enable_execute_command = true 
 
   network_configuration {
     subnets = [
@@ -72,6 +73,7 @@ resource "aws_ecs_service" "update_only" {
 
     security_groups  = ["sg-0da098a0fdff7851d"]
     assign_public_ip = true
+    
   }
 
   deployment_minimum_healthy_percent = 0
