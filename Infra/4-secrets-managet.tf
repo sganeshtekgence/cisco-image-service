@@ -2,7 +2,7 @@
 # Secrets Manager - Image API Secret
 ############################################
 resource "aws_secretsmanager_secret" "image_secret" {
-  name        = "cisco/image-service/IMAGE_SECRET"
+  name        = "cisco/image-service/IMAGE_SECRET_NEW"
   description = "Secret used to authenticate image upload/download API"
 
   recovery_window_in_days = 0  # delete immediately if destroyed
