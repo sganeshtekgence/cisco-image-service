@@ -65,7 +65,7 @@ resource "aws_ecs_service" "update_only" {
 
   network_configuration {
     subnets = [
-      "subnet-0993f000ba5d1c66",
+      "subnet-0993f0000ba5d1c66",
       "subnet-0648de06158a14095",
       "subnet-071ec41fd0996ccd2"
     ]
@@ -77,3 +77,4 @@ resource "aws_ecs_service" "update_only" {
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
 }
+
