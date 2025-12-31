@@ -28,13 +28,18 @@ data "aws_ecs_cluster" "this" {
 # -------------------------------------------------
 # Register NEW task definition revision
 # -------------------------------------------------
-
 resource "aws_ecs_task_definition" "app" {
   family                   = "cisco-image-service"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = "256"
   memory                   = "512"
+
+  # ✅ REQUIRED for Fargate + ECR + Secrets
+  execution_role_arn = "arn:aws:iam::147871689327:role/cisco-ecs-execution-role"
+
+  # ✅ Used by application code (optional but correct)
+  task_role_arn = "arn:aws:iam::147871689327:role/cisco-ecs-task-role"
 
   container_definitions = jsonencode([
     {
@@ -47,12 +52,20 @@ resource "aws_ecs_task_definition" "app" {
       ]
 
       environment = [
-        { name = "APP_PORT", value = "8080" },
-        { name = "IMAGE_SECRET", value = local.image_secret }
+        { name = "APP_PORT", value = "8080" }
+      ]
+
+      # ✅ BEST PRACTICE: Secrets injected at runtime
+      secrets = [
+        {
+          name      = "IMAGE_SECRET"
+          valueFrom = "arn:aws:secretsmanager:us-east-1:147871689327:secret:cisco/image-service/IMAGE_SECRET_NEW"
+        }
       ]
     }
   ])
 }
+
 
 # -------------------------------------------------
 # Update ECS Service to new task revision
