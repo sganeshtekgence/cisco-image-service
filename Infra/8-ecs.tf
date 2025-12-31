@@ -1,4 +1,37 @@
 ############################################
+# Variables
+############################################
+
+variable "aws_region" {
+  type        = string
+  description = "AWS region"
+  default     = "us-east-1"
+}
+
+variable "project_name" {
+  type        = string
+  description = "Project name"
+  default     = "cisco"
+}
+
+variable "service_name" {
+  type        = string
+  description = "ECS service name"
+  default     = "cisco-image-service"
+}
+
+############################################
+# Locals
+############################################
+
+locals {
+  common_tags = {
+    Project = var.project_name
+    Managed = "terraform"
+  }
+}
+
+############################################
 # ECS Cluster
 ############################################
 
@@ -10,18 +43,25 @@ resource "aws_ecs_cluster" "app" {
     value = "enabled"
   }
 
-  tags = {
-    Project = "cisco"
-    Network = "shared"
-  }
+  tags = local.common_tags
 }
 
 ############################################
-# ECS TASK DEFINITION
+# CloudWatch Logs (for ECS)
+############################################
+
+resource "aws_cloudwatch_log_group" "ecs" {
+  name              = "/ecs/${var.service_name}"
+  retention_in_days = 14
+  tags              = local.common_tags
+}
+
+############################################
+# ECS Task Definition
 ############################################
 
 resource "aws_ecs_task_definition" "app" {
-  family                   = "cisco-image-service"
+  family                   = var.service_name
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = "256"
@@ -35,29 +75,53 @@ resource "aws_ecs_task_definition" "app" {
     operating_system_family = "LINUX"
   }
 
+  # IMPORTANT:
+  # Image tag is a placeholder.
+  # Jenkins will register a NEW task definition with the real image tag.
   container_definitions = jsonencode([
     {
-      name  = "image-service"
-      image = "${aws_ecr_repository.app.repository_url}:latest"
+      name      = "image-service"
+      image     = "${aws_ecr_repository.app.repository_url}:PLACEHOLDER"
       essential = true
-      portMappings = [{ containerPort = 80 }]
+
+      portMappings = [
+        {
+          containerPort = 80
+          protocol      = "tcp"
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.ecs.name
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "ecs"
+        }
+      }
     }
   ])
+
+  tags = local.common_tags
 }
+
 ############################################
-# SECURITY GROUP FOR ECS TASKS
+# Security Group for ECS Tasks
 ############################################
 
 resource "aws_security_group" "ecs_task_sg" {
   name        = "cisco-ecs-task-sg"
-  description = "Allow inbound HTTP and all outbound"
+  description = "ECS task security group"
   vpc_id      = module.vpc.vpc_id
 
+  # TEMPORARY:
+  # Allow HTTP within VPC.
+  # When ALB is added, restrict this to ALB SG only.
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [module.vpc.vpc_cidr_block]
   }
 
   egress {
@@ -71,29 +135,43 @@ resource "aws_security_group" "ecs_task_sg" {
 }
 
 ############################################
-# ECS SERVICE (NO ALB, PUBLIC IP)
+# ECS Service (Jenkins controls deployments)
 ############################################
 
 resource "aws_ecs_service" "app" {
-  name            = "cisco-image-service"
+  name            = var.service_name
   cluster         = aws_ecs_cluster.app.id
-  task_definition = aws_ecs_task_definition.app.arn
   desired_count   = 1
   launch_type     = "FARGATE"
+  task_definition = aws_ecs_task_definition.app.arn
 
   network_configuration {
-    subnets          = module.vpc.public_subnets
-    assign_public_ip = true
+    subnets          = module.vpc.private_subnets
+    assign_public_ip = false
     security_groups  = [aws_security_group.ecs_task_sg.id]
+  }
+
+  # CRITICAL:
+  # Prevent Terraform from redeploying when Jenkins updates task definition
+  lifecycle {
+    ignore_changes = [task_definition]
   }
 
   tags = local.common_tags
 }
 
 ############################################
-# Output (optional)
+# Outputs
 ############################################
 
-output "ecs_cluster_id" {
-  value = aws_ecs_cluster.app.id
+output "ecs_cluster_name" {
+  value = aws_ecs_cluster.app.name
+}
+
+output "ecs_service_name" {
+  value = aws_ecs_service.app.name
+}
+
+output "ecr_repository_url" {
+  value = aws_ecr_repository.app.repository_url
 }
