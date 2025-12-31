@@ -3,7 +3,8 @@ terraform {
     bucket         = "terraformstatefile-cisco"
     key            = "infra/terraform.tfstate"
     region         = "us-east-1"
-    dynamodb_table = "terraform-locks"
+    # dynamodb_table = "terraform-locks"
+     use_lockfile  = true
     encrypt        = true
   }
 }
