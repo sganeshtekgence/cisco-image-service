@@ -2,7 +2,7 @@
 # CloudWatch Logs for ECS
 ############################################
 resource "aws_cloudwatch_log_group" "ecs_app" {
-  name              = "/ecs/cisco-image-service"
+  name              = "/ecs/cisco-image-service-new"
   retention_in_days = 7
 
   tags = local.common_tags

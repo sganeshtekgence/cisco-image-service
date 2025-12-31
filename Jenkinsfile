@@ -2,93 +2,68 @@ pipeline {
   agent any
 
   environment {
-    AWS_REGION    = "us-east-1"
-    ECR_REPO      = "cisco-app"
-    ECS_CLUSTER   = "cisco-ecs-cluster"
-    ECS_SERVICE   = "cisco-image-service"
-    IMAGE_TAG     = "${BUILD_NUMBER}"
+    AWS_REGION = "us-east-1"
+    ECR_REPO  = "147871689327.dkr.ecr.us-east-1.amazonaws.com/cisco-app"
+    IMAGE_TAG = "${BUILD_NUMBER}"
   }
 
   stages {
 
-    stage("Checkout") {
+      stage("Checkout Source Code") {
       steps {
-        checkout scm
-      }
-    }
-
-    stage("Terraform Init & Apply") {
-      steps {
-        dir("Infra") {
-          sh """
-            terraform init -input=false
-            terraform apply -auto-approve
-          """
-        }
-      }
-    }
-
-    stage("Resolve AWS Account") {
-      steps {
-        script {
-          env.AWS_ACCOUNT_ID = sh(
-            script: "aws sts get-caller-identity --query Account --output text",
-            returnStdout: true
-          ).trim()
-
-          env.ECR_URI = "${env.AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
-        }
-      }
-    }
-
-    stage("Login to ECR") {
-      steps {
-        sh """
-          aws ecr get-login-password --region ${AWS_REGION} \
-          | docker login --username AWS --password-stdin ${ECR_URI}
-        """
+        checkout([
+          $class: 'GitSCM',
+          branches: [[name: '*/main']],
+          userRemoteConfigs: [[
+            url: 'https://github.com/sganeshtekgence/cisco-image-service.git',
+            credentialsId: 'github-https-creds'
+          ]]
+        ])
       }
     }
 
     stage("Build Docker Image") {
       steps {
-        sh """
-          docker build \
-            -t ${ECR_URI}:${IMAGE_TAG} \
-            -t ${ECR_URI}:latest \
-            App
-        """
+        dir("App") {
+          sh """
+            docker build -t cisco-app:${IMAGE_TAG} .
+          """
+        }
       }
     }
 
-    stage("Push Image to ECR") {
+    stage("Login & Push to ECR") {
       steps {
-        sh """
-          docker push ${ECR_URI}:${IMAGE_TAG}
-          docker push ${ECR_URI}:latest
-        """
+        dir("App") {
+          sh '''
+            aws ecr get-login-password --region $AWS_REGION \
+              | docker login --username AWS \
+                --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+            docker tag cisco-app:${IMAGE_TAG} ${ECR_REPO}:${IMAGE_TAG}
+            docker push ${ECR_REPO}:${IMAGE_TAG}
+          '''
+        }
       }
     }
 
-    stage("Deploy to ECS") {
+    stage("Deploy to ECS via Terraform") {
       steps {
-        sh """
-          aws ecs update-service \
-            --cluster ${ECS_CLUSTER} \
-            --service ${ECS_SERVICE} \
-            --force-new-deployment \
-            --region ${AWS_REGION}
-        """
+        dir("App/deploy") {
+          sh '''
+            terraform init
+            terraform apply -auto-approve \
+              -var="image_tag=${IMAGE_TAG}"
+          '''
+        }
       }
     }
-  }
-
-  post {
+  } post {
     success {
-      echo "Deployment successful"
+      echo "Deployment succeeded for image tag: ${IMAGE_TAG}"
     }
     failure {
-      echo "Deployment failed"
+      echo "Deployment failed for image tag: ${IMAGE_TAG}"
     }
   }
 }

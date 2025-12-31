@@ -9,11 +9,10 @@ from pathlib import Path
 # Configuration
 # -------------------------------------------------
 
-APP_PORT = int(os.environ.get("APP_PORT", 80))
-IMAGE_SECRET = os.environ.get(
-    "IMAGE_SECRET",
-    "h20tavyWvchAlZko21t0X0lH93VJCQBn"  # fallback for local testing
-)
+APP_PORT = int(os.environ.get("APP_PORT", 8080))
+
+# REQUIRED for POST (upload)
+IMAGE_SECRET = os.environ.get("IMAGE_SECRET")
 
 BASE_DIR = Path(__file__).resolve().parent
 IMAGE_DIR = BASE_DIR / "images"
@@ -36,23 +35,21 @@ def health():
     return "OK", 200
 
 # -------------------------------------------------
-# Helper: secret validation
+# Helper: secret validation (POST only)
 # -------------------------------------------------
 
 def validate_secret():
     secret = request.headers.get("X-Image-Secret")
-    if not secret or secret != IMAGE_SECRET:
+    if not IMAGE_SECRET or secret != IMAGE_SECRET:
         logging.warning("Invalid or missing X-Image-Secret header")
         abort(403)
 
 # -------------------------------------------------
-# GET image
+# GET image (PUBLIC – browser-friendly)
 # -------------------------------------------------
 
 @app.route("/image/<file_name>", methods=["GET"])
 def get_image(file_name):
-    validate_secret()
-
     image_path = IMAGE_DIR / f"{file_name}.png"
 
     if not image_path.exists():
@@ -61,7 +58,7 @@ def get_image(file_name):
     return send_file(image_path, mimetype="image/png")
 
 # -------------------------------------------------
-# POST image
+# POST image (PROTECTED)
 # -------------------------------------------------
 
 @app.route("/image/<file_name>", methods=["POST"])
@@ -80,7 +77,7 @@ def save_image(file_name):
     return "", 201
 
 # -------------------------------------------------
-# Root (optional but user-friendly)
+# Root
 # -------------------------------------------------
 
 @app.route("/", methods=["GET"])
