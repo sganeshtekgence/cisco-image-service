@@ -25,9 +25,6 @@ data "aws_ecs_cluster" "this" {
   cluster_name = "cisco-ecs-cluster"
 }
 
-# -------------------------------------------------
-# Register NEW task definition revision
-# -------------------------------------------------
 resource "aws_ecs_task_definition" "app" {
   family                   = "cisco-image-service"
   requires_compatibilities = ["FARGATE"]
@@ -35,11 +32,8 @@ resource "aws_ecs_task_definition" "app" {
   cpu                      = "256"
   memory                   = "512"
 
-  # ✅ REQUIRED for Fargate + ECR + Secrets
   execution_role_arn = "arn:aws:iam::147871689327:role/cisco-ecs-execution-role"
-
-  # ✅ Used by application code (optional but correct)
-  task_role_arn = "arn:aws:iam::147871689327:role/cisco-ecs-task-role"
+  task_role_arn      = "arn:aws:iam::147871689327:role/cisco-ecs-task-role"
 
   container_definitions = jsonencode([
     {
@@ -48,14 +42,9 @@ resource "aws_ecs_task_definition" "app" {
       essential = true
 
       portMappings = [
-        { containerPort = 8080, protocol = "tcp" }
+        { containerPort = 8080 }
       ]
 
-      environment = [
-        { name = "APP_PORT", value = "8080" }
-      ]
-
-      # ✅ BEST PRACTICE: Secrets injected at runtime
       secrets = [
         {
           name      = "IMAGE_SECRET"
@@ -66,25 +55,16 @@ resource "aws_ecs_task_definition" "app" {
   ])
 }
 
-
-# -------------------------------------------------
-# Update ECS Service to new task revision
-# -------------------------------------------------
-
-resource "aws_ecs_service" "deploy" {
+resource "aws_ecs_service" "update_only" {
   name            = "cisco-image-service"
   cluster         = data.aws_ecs_cluster.this.id
   task_definition = aws_ecs_task_definition.app.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-
-  deployment_minimum_healthy_percent = 0
-  deployment_maximum_percent         = 100
 
   lifecycle {
     ignore_changes = [
       desired_count,
-      network_configuration
+      network_configuration,
+      launch_type
     ]
   }
 }
