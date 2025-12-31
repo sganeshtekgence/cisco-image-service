@@ -55,16 +55,18 @@ resource "aws_ecs_task_definition" "app" {
   ])
 }
 
+
 resource "aws_ecs_service" "update_only" {
   name            = "cisco-image-service"
-  cluster         = data.aws_ecs_cluster.this.id
+  cluster         = "cisco-ecs-cluster"
   task_definition = aws_ecs_task_definition.app.arn
 
   lifecycle {
     ignore_changes = [
       desired_count,
       network_configuration,
-      launch_type
+      launch_type,
+      scheduling_strategy
     ]
   }
 }
