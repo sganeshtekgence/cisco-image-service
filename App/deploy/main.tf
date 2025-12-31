@@ -66,9 +66,9 @@ resource "aws_ecs_service" "update_only" {
 
   network_configuration {
     subnets = [
-      "subnet-0993f0000ba5d1c66",
-      "subnet-0648de06158a14095",
-      "subnet-071ec41fd0996ccd2"
+      "subnet-0b56fdb90c13c0c6e",
+      "subnet-0129e36a37f16f47d",
+      "subnet-0aa0eb2a218cc2493"
     ]
 
     security_groups  = ["sg-0da098a0fdff7851d"]
