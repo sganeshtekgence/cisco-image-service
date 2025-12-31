@@ -15,11 +15,8 @@ data "aws_secretsmanager_secret_version" "image_secret" {
 }
 
 locals {
-  image_secret = jsondecode(
-    data.aws_secretsmanager_secret_version.image_secret.secret_string
-  )["IMAGE_SECRET_NEW"]
+  image_secret = data.aws_secretsmanager_secret_version.image_secret.secret_string
 }
-
 # -------------------------------------------------
 # Get existing ECS cluster
 # -------------------------------------------------
